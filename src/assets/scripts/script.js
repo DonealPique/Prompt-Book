@@ -1,18 +1,16 @@
 document.addEventListener('DOMContentLoaded', () => {
-    const promptTitleElement = document.getElementById('prompt-title');
-    const promptContentElement = document.getElementById('prompt-content');
     const promptListElement = document.getElementById('prompt-list');
     const userInput = document.getElementById('user-input');
-    const sendButton = document.getElementById('send-button');
     const addPromptButton = document.getElementById('add-prompt');
     const deletePromptButton = document.getElementById('delete-prompt');
     const editPromptButton = document.getElementById('edit-prompt');
 
-    const API_BASE_URL = 'http://localhost:8000';
+    const API_BASE_URL = 'http://localhost:8000/';
+    let selectedPromptId = null;
 
     const fetchPrompts = async () => {
         try {
-            const response = await fetch(`${API_BASE_URL}/composite_prompts`);
+            const response = await fetch(API_BASE_URL);
             if (!response.ok) throw new Error('Failed to fetch prompts');
             const prompts = await response.json();
             displayPrompts(prompts);
@@ -25,47 +23,93 @@ document.addEventListener('DOMContentLoaded', () => {
         promptListElement.innerHTML = '';
         prompts.forEach(prompt => {
             const promptItem = document.createElement('div');
-            promptItem.className = 'bg-gray-700 p-2 rounded cursor-pointer hover:bg-gray-600';
-            promptItem.textContent = prompt.title;
-            promptItem.addEventListener('click', () => loadPrompt(prompt.id));
+            promptItem.className = 'bg-gray-700 p-2 rounded cursor-pointer hover:bg-gray-600 mb-2';
+            promptItem.innerHTML = `<strong>ID:</strong> ${prompt.id} - <strong>Content:</strong> ${prompt.content}`;
+            promptItem.addEventListener('click', () => selectPrompt(prompt));
             promptListElement.appendChild(promptItem);
         });
     };
 
-    const loadPrompt = async (promptId) => {
+    const selectPrompt = (prompt) => {
+        selectedPromptId = prompt.id;
+        userInput.value = prompt.content;
+    };
+
+    const addPrompt = async () => {
+        const content = userInput.value.trim();
+        if (content) {
+            try {
+                const response = await fetch(API_BASE_URL, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        author_id: 1,
+                        content: content,
+                        description: 'User-added prompt',
+                    })
+                });
+                if (!response.ok) throw new Error('Failed to add prompt');
+                userInput.value = '';
+                fetchPrompts();
+                alert('Prompt added successfully!');
+            } catch (error) {
+                console.error('Error adding prompt:', error);
+            }
+        }
+    };
+
+    const deletePrompt = async () => {
+        if (!selectedPromptId) {
+            alert('Please select a prompt to delete');
+            return;
+        }
         try {
-            const response = await fetch(`${API_BASE_URL}/composite_prompts/${promptId}/expanded`);
-            if (!response.ok) throw new Error('Failed to fetch prompt details');
-            const prompt = await response.json();
-            promptTitleElement.innerHTML = `<h1 class="text-xl font-bold">${prompt.title}</h1>`;
-            promptContentElement.innerHTML = prompt.fragments.map(fragment => `<p>${fragment.promptFragment.content}</p>`).join('');
-        } catch (error) {
-            console.error('Error loading prompt:', error);
-        }
-    };
-
-    const sendMessage = () => {
-        const message = userInput.value.trim();
-        if (message) {
-            window.open(`https://chat.openai.com/?q=${encodeURIComponent(message)}`, '_blank');
+            const response = await fetch(`${API_BASE_URL}/${selectedPromptId}`, {
+                method: 'DELETE'
+            });
+            if (!response.ok) throw new Error('Failed to delete prompt');
             userInput.value = '';
+            selectedPromptId = null;
+            fetchPrompts();
+            alert('Prompt deleted successfully!');
+        } catch (error) {
+            console.error('Error deleting prompt:', error);
         }
     };
 
-    sendButton.addEventListener('click', sendMessage);
-    userInput.addEventListener('keypress', (e) => {
-        if (e.key === 'Enter') sendMessage();
-    });
+    const editPrompt = async () => {
+        const content = userInput.value.trim();
+        if (!selectedPromptId || !content) {
+            alert('Please select a prompt and enter new content to edit');
+            return;
+        }
+        try {
+            const response = await fetch(`${API_BASE_URL}/${selectedPromptId}`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    author_id: 1,
+                    content: content,
+                    description: 'User-updated prompt'
+                })
+            });
+            if (!response.ok) throw new Error('Failed to edit prompt');
+            userInput.value = '';
+            selectedPromptId = null;
+            fetchPrompts();
+            alert('Prompt updated successfully!');
+        } catch (error) {
+            console.error('Error editing prompt:', error);
+        }
+    };
 
-    addPromptButton.addEventListener('click', () => {
-        alert('Add Prompt functionality to be implemented.');
-    });
-    deletePromptButton.addEventListener('click', () => {
-        alert('Delete Prompt functionality to be implemented.');
-    });
-    editPromptButton.addEventListener('click', () => {
-        alert('Edit Prompt functionality to be implemented.');
-    });
-    
+    addPromptButton.addEventListener('click', addPrompt);
+    deletePromptButton.addEventListener('click', deletePrompt);
+    editPromptButton.addEventListener('click', editPrompt);
+
     fetchPrompts();
 });
