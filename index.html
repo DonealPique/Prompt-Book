@@ -6,7 +6,7 @@
     <title>Prompt Book</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/boxicons@2.1.4/dist/boxicons.js"></script>
-    <script src="/src/assets/scripts/script.js" defer></script>
+    <link rel="stylesheet" href="style.css">
 </head>
 <body class="min-h-screen bg-gray-900 text-gray-100 flex flex-col">
     <div class="flex-grow p-4 overflow-auto">
@@ -17,7 +17,16 @@
 
             <div id="prompt-content" class="bg-gray-800 rounded-lg p-4">
                 <p class="text-gray-400">Available Prompts</p>
+                <div class="flex space-x-2 mb-2">
+                    <select id="tag-filter" class="bg-gray-700 text-white p-2 rounded">
+                        <option value="">Filter by Tag</option>
+                    </select>
+                    <button id="clear-filter" class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded">
+                        Clear Filter
+                    </button>
+                </div>
                 <div id="prompt-list" class="mt-4 bg-gray-700 p-4 rounded-lg text-gray-200">
+                    <!-- Prompts will be displayed here -->
                 </div>
             </div>
         </div>
@@ -36,12 +45,14 @@
                 </button>
             </div>
             <div class="relative">
-                <input id="user-input" type="text" placeholder="Type your message..." class="w-full bg-gray-700 rounded-full py-2 px-4 pr-10 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                <textarea id="user-input" rows="2" placeholder="Type your message..." class="w-full bg-gray-700 rounded-full py-2 px-4 pr-10 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"></textarea>
                 <button id="send-button" class="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-300">
                     <box-icon type='solid' name='send'></box-icon>
                 </button>
             </div>
         </div>
     </div>
+
+    <script src="/src/assets/scripts/script.js" defer></script>
 </body>
 </html>

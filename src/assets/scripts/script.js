@@ -1,148 +1,180 @@
 document.addEventListener('DOMContentLoaded', () => {
+    const API_BASE_URL_PROMPTS = 'http://localhost:8001/prompt_fragments';
+    const API_BASE_URL_TAGS = 'http://localhost:8001/tags';
+
     const promptListElement = document.getElementById('prompt-list');
+    const tagFilter = document.getElementById('tag-filter');
     const userInput = document.getElementById('user-input');
     const addPromptButton = document.getElementById('add-prompt');
     const deletePromptButton = document.getElementById('delete-prompt');
     const editPromptButton = document.getElementById('edit-prompt');
+    const sendButton = document.getElementById('send-button');
+    const clearFilterButton = document.getElementById('clear-filter');
 
-    const API_BASE_URL = 'http://localhost:8001/prompt_fragments';
-    let selectedPromptId = null;
+    let selectedPrompt = null;
 
-    const fetchPrompts = async () => {
+    const fetchPrompts = async (tag = '') => {
         try {
-            const response = await fetch(API_BASE_URL);
+            const response = await fetch(`${API_BASE_URL_PROMPTS}${tag ? `?tag=${tag}` : ''}`);
             if (!response.ok) throw new Error('Failed to fetch prompts');
             const prompts = await response.json();
             displayPrompts(prompts);
         } catch (error) {
             console.error('Error fetching prompts:', error);
+            promptListElement.innerHTML = '<p class="text-red-500">Error fetching prompts. Please try again later.</p>';
         }
+    };
+
+    const fetchTags = async () => {
+        try {
+            const response = await fetch(API_BASE_URL_TAGS);
+            if (!response.ok) throw new Error('Failed to fetch tags');
+            const tags = await response.json();
+            populateTagFilter(tags);
+        } catch (error) {
+            console.error('Error fetching tags:', error);
+        }
+    };
+
+    const populateTagFilter = (tags) => {
+        tagFilter.innerHTML = '<option value="">Filter by Tag</option>';
+        tags.forEach(tag => {
+            const option = document.createElement('option');
+            option.value = tag.name;
+            option.textContent = tag.name;
+            tagFilter.appendChild(option);
+        });
     };
 
     const displayPrompts = (prompts) => {
         promptListElement.innerHTML = '';
+        if (prompts.length === 0) {
+            promptListElement.innerHTML = '<p class="text-gray-400">No prompts available.</p>';
+            return;
+        }
         prompts.forEach(prompt => {
             const promptItem = document.createElement('div');
             promptItem.className = 'bg-gray-700 p-2 rounded cursor-pointer hover:bg-gray-600 mb-2';
-            promptItem.innerHTML = `<strong>ID:</strong> ${prompt.id} - <strong>Content:</strong> ${prompt.content}`;
+            promptItem.innerHTML = `
+                <strong>ID:</strong> ${prompt.id} <br>
+                <strong>Content:</strong> ${prompt.content} <br>
+                <strong>Description:</strong> ${prompt.description} <br>
+                <strong>Tags:</strong> ${prompt.tags ? prompt.tags.join(', ') : 'None'}`;
             promptItem.addEventListener('click', () => selectPrompt(prompt));
             promptListElement.appendChild(promptItem);
         });
     };
 
     const selectPrompt = (prompt) => {
-        selectedPromptId = prompt.id;
-        userInput.value = prompt.content;
+        selectedPrompt = prompt;
+        userInput.value = `${prompt.content}\n\n${prompt.description}\n\nTags: ${prompt.tags ? prompt.tags.join(', ') : ''}`;
     };
 
     const addPrompt = async () => {
-        const content = userInput.value.trim();
-        if (content) {
+        const [content, description, tagsLine] = userInput.value.split('\n\n');
+        const tags = tagsLine ? tagsLine.replace('Tags: ', '').split(',').map(tag => tag.trim()) : [];
+        if (content && description) {
             try {
-                const response = await fetch(API_BASE_URL, {
+                const response = await fetch(API_BASE_URL_PROMPTS, {
                     method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({
-                        author_id: 1,
-                        content: content,
-                        description: 'User-added prompt',
-                    })
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ content, description, tags, author_id: 1 })
                 });
                 if (!response.ok) throw new Error('Failed to add prompt');
                 userInput.value = '';
                 fetchPrompts();
-                alert('Prompt added successfully!');
             } catch (error) {
                 console.error('Error adding prompt:', error);
             }
+        } else {
+            alert('Please provide both content and description.');
         }
     };
 
     const deletePrompt = async () => {
-        if (!selectedPromptId) {
+        if (!selectedPrompt) {
             alert('Please select a prompt to delete');
             return;
         }
         try {
-            const response = await fetch(`${API_BASE_URL}/${selectedPromptId}`, {
-                method: 'DELETE'
-            });
+            const response = await fetch(`${API_BASE_URL_PROMPTS}/${selectedPrompt.id}`, { method: 'DELETE' });
             if (!response.ok) throw new Error('Failed to delete prompt');
             userInput.value = '';
-            selectedPromptId = null;
+            selectedPrompt = null;
             fetchPrompts();
-            alert('Prompt deleted successfully!');
         } catch (error) {
             console.error('Error deleting prompt:', error);
         }
     };
 
     const editPrompt = async () => {
-        const content = userInput.value.trim();
-        if (!selectedPromptId || !content) {
-            alert('Please select a prompt and enter new content to edit');
+        if (!selectedPrompt) {
+            alert('Please select a prompt to edit');
             return;
         }
+
+        const [content, description, tagsLine] = userInput.value.split('\n\n');
+        const tags = tagsLine ? tagsLine.replace('Tags: ', '').split(',').map(tag => tag.trim()) : [];
+
+        if (!content || !description) {
+            alert('Content and description are required for editing.');
+            return;
+        }
+
         try {
-            const response = await fetch(`${API_BASE_URL}/${selectedPromptId}`, {
+            const response = await fetch(`${API_BASE_URL_PROMPTS}/${selectedPrompt.id}`, {
                 method: 'PUT',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
+                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    author_id: 1,
-                    content: content,
-                    description: 'User-updated prompt'
+                    author_id: selectedPrompt.author_id || 1,
+                    content: content.trim(),
+                    description: description.trim(),
+                    tags: tags
                 })
             });
-            if (!response.ok) throw new Error('Failed to edit prompt');
+
+            if (!response.ok) {
+                console.error('Failed to edit prompt:', await response.text());
+                throw new Error('Failed to edit prompt');
+            }
+
             userInput.value = '';
-            selectedPromptId = null;
+            selectedPrompt = null;
             fetchPrompts();
-            alert('Prompt updated successfully!');
         } catch (error) {
             console.error('Error editing prompt:', error);
+            alert('Failed to edit prompt. Please check console for details.');
         }
     };
 
-    const getChatGPTResponse = async () => {
+    const sendToChatGPT = (message) => {
+        const url = `https://chat.openai.com/?q=${encodeURIComponent(message)}`;
+        window.open(url, '_blank');
+    };
+
+    const handleSend = () => {
         const message = userInput.value.trim();
         if (message) {
-            try {
-                const response = await fetch(`https://chat.openai.com/?q=${encodeURIComponent(message)}`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({ message })
-                });
-                if (!response.ok) throw new Error('Failed to get response from ChatGPT');
-                const data = await response.json();
-                displayChatGPTResponse(data.response);
-            } catch (error) {
-                console.error('Error fetching ChatGPT response:', error);
-            }
+            sendToChatGPT(message);
         }
-    };
-
-    const displayChatGPTResponse = (response) => {
-        const chatResponseElement = document.createElement('div');
-        chatResponseElement.className = 'bg-blue-600 p-2 rounded text-white mt-2';
-        chatResponseElement.innerText = `ChatGPT: ${response}`;
-        promptListElement.appendChild(chatResponseElement);
     };
 
     addPromptButton.addEventListener('click', addPrompt);
     deletePromptButton.addEventListener('click', deletePrompt);
     editPromptButton.addEventListener('click', editPrompt);
-
+    sendButton.addEventListener('click', handleSend);
     userInput.addEventListener('keydown', (event) => {
-        if (event.key === 'Enter') {
-            getChatGPTResponse();
+        if (event.key === 'Enter' && !event.shiftKey) {
+            event.preventDefault();
+            handleSend();
         }
+    });
+    tagFilter.addEventListener('change', () => fetchPrompts(tagFilter.value));
+    clearFilterButton.addEventListener('click', () => {
+        tagFilter.value = '';
+        fetchPrompts();
     });
 
     fetchPrompts();
+    fetchTags();
 });
