@@ -1,0 +1,14 @@
+body {
+    font-family: Arial, sans-serif;
+}
+
+.error-message {
+    color: #f87171;
+    font-size: 0.875rem;
+    font-weight: 500;
+}
+
+#user-input {
+    overflow-y: auto;
+    resize: none;
+}
