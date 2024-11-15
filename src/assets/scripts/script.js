@@ -5,7 +5,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const deletePromptButton = document.getElementById('delete-prompt');
     const editPromptButton = document.getElementById('edit-prompt');
 
-    const API_BASE_URL = 'http://localhost:8000/';
+    const API_BASE_URL = 'http://localhost:8001/prompt_fragments';
     let selectedPromptId = null;
 
     const fetchPrompts = async () => {
@@ -107,9 +107,42 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
+    const getChatGPTResponse = async () => {
+        const message = userInput.value.trim();
+        if (message) {
+            try {
+                const response = await fetch(`https://chat.openai.com/?q=${encodeURIComponent(message)}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ message })
+                });
+                if (!response.ok) throw new Error('Failed to get response from ChatGPT');
+                const data = await response.json();
+                displayChatGPTResponse(data.response);
+            } catch (error) {
+                console.error('Error fetching ChatGPT response:', error);
+            }
+        }
+    };
+
+    const displayChatGPTResponse = (response) => {
+        const chatResponseElement = document.createElement('div');
+        chatResponseElement.className = 'bg-blue-600 p-2 rounded text-white mt-2';
+        chatResponseElement.innerText = `ChatGPT: ${response}`;
+        promptListElement.appendChild(chatResponseElement);
+    };
+
     addPromptButton.addEventListener('click', addPrompt);
     deletePromptButton.addEventListener('click', deletePrompt);
     editPromptButton.addEventListener('click', editPrompt);
+
+    userInput.addEventListener('keydown', (event) => {
+        if (event.key === 'Enter') {
+            getChatGPTResponse();
+        }
+    });
 
     fetchPrompts();
 });
